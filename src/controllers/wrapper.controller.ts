@@ -1,6 +1,7 @@
 import axios from "axios";
 import type { RequestHandler } from "express";
 
+import { HttpError } from "../errors/http-error";
 import type { EndpointHandler } from "../services/endpoint.types";
 
 export class WrapperController {
@@ -14,6 +15,16 @@ export class WrapperController {
           response.status(error.response.status).json(error.response.data ?? {
             error: {
               statusCode: error.response.status,
+              message: error.message,
+            },
+          });
+          return;
+        }
+
+        if (error instanceof HttpError) {
+          response.status(error.statusCode).json({
+            error: {
+              statusCode: error.statusCode,
               message: error.message,
             },
           });

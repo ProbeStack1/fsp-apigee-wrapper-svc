@@ -28,20 +28,11 @@ function sleep(milliseconds: number): Promise<void> {
 
 function withDefaultHeaders(config: AxiosRequestConfig): AxiosRequestConfig {
   const requestHeaders = (config.headers as Record<string, string> | undefined) ?? {};
-  const hasForwardedAuthorization = Object.keys(requestHeaders).some(
-    (headerName) => headerName.toLowerCase() === "authorization",
-  );
-  const authHeader = process.env.APIGEE_ACCESS_TOKEN && !hasForwardedAuthorization
-    ? { Authorization: `Bearer ${process.env.APIGEE_ACCESS_TOKEN}` }
-    : {};
 
   return {
     timeout: getTimeoutMs(),
     ...config,
-    headers: {
-      ...authHeader,
-      ...requestHeaders,
-    },
+    headers: requestHeaders,
   };
 }
 

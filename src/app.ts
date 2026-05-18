@@ -57,6 +57,7 @@ function getAllowedRequestHeaders(request: express.Request): string {
     "Content-Type",
     "Accept",
     "Authorization",
+    "X-Apigee-Token",
     "X-Partner-Id",
   ];
 
