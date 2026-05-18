@@ -31,6 +31,7 @@ function getAllowedOrigins(): string[] {
     .filter(Boolean);
 }
 
+
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
