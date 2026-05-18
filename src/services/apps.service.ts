@@ -33,8 +33,18 @@ const itemName = (item: unknown, fallback?: string): string | null => {
   }
 
   if (item && typeof item === "object") {
-    const name = (item as Record<string, unknown>).name;
-    return typeof name === "string" && name.trim() ? name.trim() : fallback ?? null;
+    const record = item as Record<string, unknown>;
+    const name = record.name;
+    const appId = record.appId;
+    if (typeof name === "string" && name.trim()) {
+      return name.trim();
+    }
+
+    if (typeof appId === "string" && appId.trim()) {
+      return appId.trim();
+    }
+
+    return fallback ?? null;
   }
 
   return fallback ?? null;
