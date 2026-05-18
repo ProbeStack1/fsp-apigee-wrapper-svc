@@ -2,7 +2,7 @@
   "name": "apigee-wrapper",
   "version": "1.0.0",
   "private": true,
-  "description": "Production-ready Node.js + TypeScript backend wrapper for Apigee X management APIs.",
+  "description": "Backend wrapper for Apigee X management APIs.",
   "main": "dist/server.js",
   "scripts": {
     "dev": "nodemon --watch src --ext ts --exec tsx src/server.ts",
