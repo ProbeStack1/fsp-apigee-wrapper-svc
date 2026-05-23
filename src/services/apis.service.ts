@@ -1,6 +1,8 @@
 import type { Request } from "express";
 
 import { apiClient } from "../client/api-client";
+import { ensureMongoConnected } from "../db/mongo";
+import { CodegenResultModel } from "../models/codegen-result.model";
 import { getApigeeBaseUrl, encodePathParam } from "./apigee-base-url.service";
 import { getForwardBody, getRequestConfig } from "./request-utils.service";
 
@@ -61,6 +63,84 @@ const proxyName = (item: unknown): string | null => {
   const record = asRecord(item);
   const name = record?.name;
   return typeof name === "string" && name.trim() ? name.trim() : null;
+};
+
+type LifecycleProxyMetadata = {
+  source: "LIFECYCLE_TOOL" | "DIRECT_MANAGEMENT_API";
+  createdInLifecycleTool: boolean;
+  artifactId?: string;
+  codegenResultId?: string;
+  microserviceId?: string;
+  onboardingId?: string;
+  status?: string;
+};
+
+const directManagementMetadata = (): LifecycleProxyMetadata => ({
+  source: "DIRECT_MANAGEMENT_API",
+  createdInLifecycleTool: false,
+});
+
+const optionalString = (value: unknown): string | undefined => {
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+
+  const text = String(value).trim();
+  return text ? text : undefined;
+};
+
+const toLifecycleProxyMetadata = (codegenResult: Record<string, unknown> | null | undefined): LifecycleProxyMetadata => {
+  if (!codegenResult) {
+    return directManagementMetadata();
+  }
+
+  return {
+    source: "LIFECYCLE_TOOL",
+    createdInLifecycleTool: true,
+    artifactId: optionalString(codegenResult.artifactId),
+    codegenResultId: optionalString(codegenResult._id),
+    microserviceId: optionalString(codegenResult.microserviceId),
+    onboardingId: optionalString(codegenResult.onboardingId),
+    status: optionalString(codegenResult.status),
+  };
+};
+
+const lifecycleMetadataForProxy = async (proxyNameValue: string): Promise<LifecycleProxyMetadata> => {
+  try {
+    await ensureMongoConnected();
+    const codegenResult = await CodegenResultModel.findOne({ artifactId: proxyNameValue }).lean();
+    return toLifecycleProxyMetadata(codegenResult as Record<string, unknown> | null);
+  } catch {
+    return directManagementMetadata();
+  }
+};
+
+const lifecycleMetadataForProxies = async (proxyNames: string[]): Promise<Map<string, LifecycleProxyMetadata>> => {
+  const metadataByProxyName = new Map<string, LifecycleProxyMetadata>();
+  const uniqueProxyNames = [...new Set(proxyNames.filter(Boolean))];
+
+  uniqueProxyNames.forEach((name) => metadataByProxyName.set(name, directManagementMetadata()));
+  if (uniqueProxyNames.length === 0) {
+    return metadataByProxyName;
+  }
+
+  try {
+    await ensureMongoConnected();
+    const codegenResults = await CodegenResultModel.find({
+      artifactId: { $in: uniqueProxyNames },
+    }).lean();
+
+    for (const codegenResult of codegenResults) {
+      const artifactId = optionalString((codegenResult as Record<string, unknown>).artifactId);
+      if (artifactId) {
+        metadataByProxyName.set(artifactId, toLifecycleProxyMetadata(codegenResult as Record<string, unknown>));
+      }
+    }
+  } catch {
+    return metadataByProxyName;
+  }
+
+  return metadataByProxyName;
 };
 
 const stringValue = (value: unknown): string | undefined =>
@@ -296,6 +376,9 @@ export const apisEndpoints = {
     const proxyItems = getProxyItems(listResponse.data)
       .map((item) => ({ item, name: proxyName(item) }))
       .filter((proxy): proxy is { item: unknown; name: string } => Boolean(proxy.name));
+    const lifecycleMetadataByProxyName = await lifecycleMetadataForProxies(
+      proxyItems.map((proxy) => proxy.name),
+    );
 
     const proxies = await mapWithConcurrency(proxyItems, detailsConcurrency(request), async ({ item, name }) => {
       try {
@@ -327,6 +410,9 @@ export const apisEndpoints = {
         return {
           ...(listRecord ?? {}),
           name,
+          lifecycle: lifecycleMetadataByProxyName.get(name) ?? directManagementMetadata(),
+          source: lifecycleMetadataByProxyName.get(name)?.source ?? "DIRECT_MANAGEMENT_API",
+          createdInLifecycleTool: lifecycleMetadataByProxyName.get(name)?.createdInLifecycleTool ?? false,
           apiProxyType: firstString(listRecord?.apiProxyType, asRecord(proxyDetail)?.apiProxyType),
           type: inferProxyType(name, item, proxyDetail, latestRevisionDetail),
           environments: collectEnvironments(deployments),
@@ -352,6 +438,9 @@ export const apisEndpoints = {
         return {
           ...(asRecord(item) ?? {}),
           name,
+          lifecycle: lifecycleMetadataByProxyName.get(name) ?? directManagementMetadata(),
+          source: lifecycleMetadataByProxyName.get(name)?.source ?? "DIRECT_MANAGEMENT_API",
+          createdInLifecycleTool: lifecycleMetadataByProxyName.get(name)?.createdInLifecycleTool ?? false,
           type: inferProxyType(name, item, null),
           environments: [],
           environmentSummary: "Unable to load",
@@ -386,6 +475,7 @@ export const apisEndpoints = {
 
   getApiDetails: async (request: Request) => {
     const requestConfig = getRequestConfig(request);
+    const lifecycle = await lifecycleMetadataForProxy(String(request.params.api));
     const [proxyResponse, revisionsResponse, deploymentsResult] = await Promise.all([
       apiClient.get(apiPath(request), requestConfig),
       apiClient.get(apiRevisionsPath(request), requestConfig),
@@ -402,6 +492,9 @@ export const apisEndpoints = {
     return {
       organization: request.params.org,
       api: request.params.api,
+      lifecycle,
+      source: lifecycle.source,
+      createdInLifecycleTool: lifecycle.createdInLifecycleTool,
       proxy: proxyResponse.data,
       revisions,
       revisionDetails,
