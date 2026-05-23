@@ -9,6 +9,9 @@ export function createApisRouter(): Router {
 
   // Folder: 02. APIs
   router.get("/organizations/:org/apis", controller.handle(apisEndpoints.listApis));
+  router.get("/organizations/:org/apis/details", controller.handle(apisEndpoints.listApisDetailed));
+  router.get("/organizations/:org/apis/:api/details", controller.handle(apisEndpoints.getApiDetails));
+  router.get("/organizations/:org/apis/:api", controller.handle(apisEndpoints.getApi));
   router.post("/organizations/:org/apis", controller.handle(apisEndpoints.importApi));
 
   return router;
