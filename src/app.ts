@@ -7,6 +7,7 @@ import { createAppsRouter } from "./routes/apps.routes";
 import { createDevelopersRouter } from "./routes/developers.routes";
 import { createKeyValueMapsRouter } from "./routes/key-value-maps.routes";
 import { createOrganizationsRouter } from "./routes/organizations.routes";
+import { createSharedFlowsRouter } from "./routes/shared-flows.routes";
 import { createTargetServersRouter } from "./routes/target-servers.routes";
 import { createTlsKeystoresRouter } from "./routes/tls-keystores.routes";
 
@@ -106,6 +107,7 @@ export function buildApp(): Express {
 
   api.use(createOrganizationsRouter());
   api.use(createApisRouter());
+  api.use(createSharedFlowsRouter());
   api.use(createDevelopersRouter());
   api.use(createTargetServersRouter());
   api.use(createKeyValueMapsRouter());
