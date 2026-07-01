@@ -4,6 +4,7 @@ import { createApiProductsRouter } from "./routes/api-products.routes";
 import { createApisRouter } from "./routes/apis.routes";
 import { createAppCredentialsRouter } from "./routes/app-credentials.routes";
 import { createAppsRouter } from "./routes/apps.routes";
+import { createAuthRouter } from "./routes/auth.routes";
 import { createDevelopersRouter } from "./routes/developers.routes";
 import { createKeyValueMapsRouter } from "./routes/key-value-maps.routes";
 import { createOrganizationsRouter } from "./routes/organizations.routes";
@@ -106,6 +107,7 @@ export function buildApp(): Express {
   });
 
   api.use(createOrganizationsRouter());
+  api.use(createAuthRouter());
   api.use(createApisRouter());
   api.use(createSharedFlowsRouter());
   api.use(createDevelopersRouter());

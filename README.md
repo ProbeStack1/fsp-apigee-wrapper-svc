@@ -40,6 +40,23 @@ MONGODB_DB_NAME=forgesphere
 
 Pass the Apigee management API access token with `x-apigee-token`. The wrapper converts it to `Authorization: Bearer <token>` for Apigee and does not forward `x-apigee-token` upstream.
 
+## Generate Apigee Access Token
+
+Place the Google service account JSON key outside source control and configure its path:
+
+```bash
+APIGEE_SERVICE_ACCOUNT_KEY_PATH=gen-ai-poc-onboarding-18-may.json
+APIGEE_AUTH_SCOPE=https://www.googleapis.com/auth/cloud-platform
+```
+
+Then call:
+
+```text
+GET /auth/apigee/token
+```
+
+The response contains `access_token`, `token_type`, `expires_in`, `expiry_date`, and `scope`. Tokens are cached in memory until shortly before expiry. Add `?forceRefresh=true` to force a new token.
+
 ## Tracked Config Operations
 
 Create, update, and delete operations for target servers, KVMs/KVM entries, API products, and developer apps require an `onboardingId`.

@@ -3,3 +3,4 @@ dist
 .env
 coverage
 *.log
+gen-ai-poc-onboarding-18-may.json

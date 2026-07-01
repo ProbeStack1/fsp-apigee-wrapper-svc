@@ -26,6 +26,7 @@ ENV NODE_ENV=production \
     CORS_ORIGIN=http://localhost:5173,https://probestack.io,https://prod.probestack.io,https://*.probestack.io \
     REQUEST_TIMEOUT_MS=10000 \
     AXIOS_RETRY_COUNT=2 \
+    APIGEE_AUTH_SCOPE=https://www.googleapis.com/auth/cloud-platform \
     AXIOS_RETRY_DELAY_MS=300 \
     APIGEE_BASE_URL=https://apigee.googleapis.com/v1 \
     MONGODB_URI=mongodb+srv://admin_db_user:HdhPLHmhHEhxSUTa@probestack-prod.mby902c.mongodb.net/probestack-forgesphere?appName=probestack-prod \
