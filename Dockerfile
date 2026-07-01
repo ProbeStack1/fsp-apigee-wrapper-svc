@@ -27,7 +27,7 @@ ENV NODE_ENV=production \
     REQUEST_TIMEOUT_MS=10000 \
     AXIOS_RETRY_COUNT=2 \
     APIGEE_AUTH_SCOPE=https://www.googleapis.com/auth/cloud-platform \
-    APIGEE_SERVICE_ACCOUNT_KEY_PATH=/app/gen-ai-poc-onboarding-18-may.json \
+    # APIGEE_SERVICE_ACCOUNT_KEY_PATH=/app/gen-ai-poc-onboarding-18-may.json \
     AXIOS_RETRY_DELAY_MS=300 \
     APIGEE_BASE_URL=https://apigee.googleapis.com/v1 \
     MONGODB_URI=mongodb+srv://admin_db_user:HdhPLHmhHEhxSUTa@probestack-prod.mby902c.mongodb.net/probestack-forgesphere?appName=probestack-prod \
