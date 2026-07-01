@@ -3,6 +3,7 @@ dist
 .git
 .gitignore
 .env
+gen-ai-poc-onboarding-18-may.json
 npm-debug.log
 Dockerfile*
 README.md

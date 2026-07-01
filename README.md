@@ -57,6 +57,16 @@ GET /auth/apigee/token
 
 The response contains `access_token`, `token_type`, `expires_in`, `expiry_date`, and `scope`. Tokens are cached in memory until shortly before expiry. Add `?forceRefresh=true` to force a new token.
 
+For Docker deployments, mount the key into the container instead of copying it into the image:
+
+```bash
+docker run \
+  -v /secure/path/gen-ai-poc-onboarding-18-may.json:/app/gen-ai-poc-onboarding-18-may.json:ro \
+  -e APIGEE_SERVICE_ACCOUNT_KEY_PATH=/app/gen-ai-poc-onboarding-18-may.json \
+  -p 3000:3000 \
+  apigee-wrapper
+```
+
 ## Tracked Config Operations
 
 Create, update, and delete operations for target servers, KVMs/KVM entries, API products, and developer apps require an `onboardingId`.
