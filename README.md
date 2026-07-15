@@ -72,7 +72,7 @@ docker run \
 Create, update, and delete operations for target servers, KVMs/KVM entries, API products, and developer apps require an `onboardingId`.
 `microserviceId` is accepted but optional.
 
-Tracking metadata can be sent in any of these places:
+Tracking metadata can be sent in any of these places :
 
 ```json
 {
