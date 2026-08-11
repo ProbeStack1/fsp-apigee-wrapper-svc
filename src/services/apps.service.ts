@@ -1,7 +1,7 @@
 import type { Request } from "express";
 
 import { apiClient } from "../client/api-client";
-import { buildResourceKey, executeTrackedMutation, resolveListResourceSources, syncDirectResources, type ResourceSourceMetadata } from "./config-tracking.service";
+import { buildResourceKey, executeTrackedMutation, getResourceAudit, resolveListResourceSources, syncDirectResources, type ResourceSourceMetadata } from "./config-tracking.service";
 import { getApigeeBaseUrl, encodePathParam } from "./apigee-base-url.service";
 import { getBody, getForwardBody, getRequestConfig } from "./request-utils.service";
 
@@ -112,9 +112,6 @@ export const appsEndpoints = {
     const metadataByKey = await resolveListResourceSources(request, resources);
     const enrichedItems = resources
       .map((resource) => ({ resource, metadata: metadataByKey.get(buildResourceKey(resource)) }))
-      .filter((item): item is { resource: (typeof resources)[number]; metadata: ResourceSourceMetadata } =>
-        Boolean(item.metadata),
-      )
       .map(({ resource, metadata }) => annotateItem(resource.payload, resource.name, metadata));
     return replaceList(response.data, enrichedItems);
   },
@@ -128,7 +125,28 @@ export const appsEndpoints = {
       name: itemName(response.data, String(request.params.app)) ?? String(request.params.app),
       payload: response.data,
     }]);
-    return response.data;
+    const app = response.data as Record<string, unknown>;
+    const audit = await getResourceAudit(request, {
+      configType: "DEVELOPER_APP",
+      org: String(request.params.org),
+      developerEmail: String(request.params.developer),
+      name: itemName(response.data, String(request.params.app)) ?? String(request.params.app),
+    });
+    return {
+      ...app,
+      audit: {
+        ...audit,
+        registry: {
+          ...(audit.registry ?? {}),
+          createdBy: audit.registry?.createdBy ?? app.createdBy ?? (app.metaData as Record<string, unknown> | undefined)?.createdBy,
+          createdAt: audit.registry?.createdAt ?? app.createdAt,
+          updatedBy: audit.registry?.updatedBy ?? app.lastModifiedBy ?? app.updatedBy ?? (app.metaData as Record<string, unknown> | undefined)?.lastModifiedBy,
+          updatedAt: audit.registry?.updatedAt ?? app.lastModifiedAt,
+          source: audit.registry?.source ?? "DIRECT_MANAGEMENT_API",
+          status: audit.registry?.status ?? "ACTIVE",
+        },
+      },
+    };
   },
 
   createApp: async (request: Request) => {

@@ -1,7 +1,7 @@
 import type { Request } from "express";
 
 import { apiClient } from "../client/api-client";
-import { buildResourceKey, executeTrackedMutation, resolveListResourceSources, syncDirectResources, type ResourceSourceMetadata } from "./config-tracking.service";
+import { buildResourceKey, executeTrackedMutation, getResourceAudit, resolveListResourceSources, syncDirectResources, type ResourceSourceMetadata } from "./config-tracking.service";
 import { getApigeeBaseUrl, encodePathParam } from "./apigee-base-url.service";
 import { getBody, getForwardBody, getRequestConfig } from "./request-utils.service";
 
@@ -100,9 +100,6 @@ export const apiProductsEndpoints = {
     const metadataByKey = await resolveListResourceSources(request, resources);
     const enrichedItems = resources
       .map((resource) => ({ resource, metadata: metadataByKey.get(buildResourceKey(resource)) }))
-      .filter((item): item is { resource: (typeof resources)[number]; metadata: ResourceSourceMetadata } =>
-        Boolean(item.metadata),
-      )
       .map(({ resource, metadata }) => annotateItem(resource.payload, resource.name, metadata));
     return replaceList(response.data, enrichedItems);
   },
@@ -115,7 +112,27 @@ export const apiProductsEndpoints = {
       name: itemName(response.data, String(request.params.name)) ?? String(request.params.name),
       payload: response.data,
     }]);
-    return response.data;
+    const product = response.data as Record<string, unknown>;
+    const audit = await getResourceAudit(request, {
+      configType: "API_PRODUCT",
+      org: String(request.params.org),
+      name: itemName(response.data, String(request.params.name)) ?? String(request.params.name),
+    });
+    return {
+      ...product,
+      audit: {
+        ...audit,
+        registry: {
+          ...(audit.registry ?? {}),
+          createdBy: audit.registry?.createdBy ?? product.createdBy ?? (product.metaData as Record<string, unknown> | undefined)?.createdBy,
+          createdAt: audit.registry?.createdAt ?? product.createdAt,
+          updatedBy: audit.registry?.updatedBy ?? product.lastModifiedBy ?? product.updatedBy ?? (product.metaData as Record<string, unknown> | undefined)?.lastModifiedBy,
+          updatedAt: audit.registry?.updatedAt ?? product.lastModifiedAt,
+          source: audit.registry?.source ?? "DIRECT_MANAGEMENT_API",
+          status: audit.registry?.status ?? "ACTIVE",
+        },
+      },
+    };
   },
 
   createProduct: async (request: Request) => {

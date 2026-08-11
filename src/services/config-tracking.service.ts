@@ -13,7 +13,7 @@ import { readTrackingMetadata } from "./tracking-metadata.service";
 export type ConfigType = "TARGET_SERVER" | "KVM" | "KVM_ENTRY" | "API_PRODUCT" | "DEVELOPER_APP";
 export type ConfigOperation = "CREATE" | "UPDATE" | "DELETE";
 
-type ResourceIdentity = {
+export type ResourceIdentity = {
   configType: ConfigType;
   org: string;
   environment?: string;
@@ -40,6 +40,11 @@ export type ResourceSourceMetadata = {
   microserviceId?: string;
 };
 
+export type ResourceAudit = {
+  registry: Record<string, unknown> | null;
+  history: Array<Record<string, unknown>>;
+};
+
 export function buildResourceKey(identity: ResourceIdentity): string {
   return [
     identity.configType,
@@ -48,6 +53,30 @@ export function buildResourceKey(identity: ResourceIdentity): string {
     identity.developerEmail ?? "-",
     identity.name,
   ].join("|");
+}
+
+export async function getResourceAudit(
+  request: Request,
+  identity: ResourceIdentity,
+): Promise<ResourceAudit> {
+  try {
+    await ensureMongoConnected();
+    const tracking = readTrackingMetadata(request, false);
+    const query: Record<string, unknown> = { resourceKey: buildResourceKey(identity) };
+    if (tracking?.onboardingId) query.onboardingId = tracking.onboardingId;
+
+    const registry = await ApigeeConfigRegistryModel.findOne(query).sort({ updatedAt: -1 }).lean();
+    const historyQuery: Record<string, unknown> = { resourceKey: query.resourceKey };
+    if (tracking?.onboardingId) historyQuery.onboardingId = tracking.onboardingId;
+    const history = await ApigeeConfigHistoryModel.find(historyQuery).sort({ performedAt: -1 }).lean();
+
+    return {
+      registry: registry ? (registry as unknown as Record<string, unknown>) : null,
+      history: history.map((entry) => entry as unknown as Record<string, unknown>),
+    };
+  } catch {
+    return { registry: null, history: [] };
+  }
 }
 
 function hashPayload(payload: unknown): string {

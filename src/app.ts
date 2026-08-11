@@ -1,6 +1,7 @@
 import express, { type Express } from "express";
 
 import { createApiProductsRouter } from "./routes/api-products.routes";
+import { createConfigAuditRouter } from "./routes/config-audit.routes";
 import { createApisRouter } from "./routes/apis.routes";
 import { createAppCredentialsRouter } from "./routes/app-credentials.routes";
 import { createAppsRouter } from "./routes/apps.routes";
@@ -114,6 +115,7 @@ export function buildApp(): Express {
   api.use(createTargetServersRouter());
   api.use(createKeyValueMapsRouter());
   api.use(createApiProductsRouter());
+  api.use(createConfigAuditRouter());
   api.use(createAppsRouter());
   api.use(createAppCredentialsRouter());
   api.use(createTlsKeystoresRouter());

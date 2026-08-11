@@ -5,7 +5,7 @@ import { HttpError } from "../errors/http-error";
 export type TrackingMetadata = {
   onboardingId: string;
   microserviceId?: string;
-  createdBy?: string;
+  createdBy: string;
 };
 
 function firstHeaderValue(value: string | string[] | undefined): string | undefined {
@@ -65,6 +65,10 @@ export function readTrackingMetadata(request: Request, requireOnboardingId = tru
     firstString(firstHeaderValue(request.headers["x-performed-by"])) ??
     firstString(firstHeaderValue(request.headers["x-user-email"])) ??
     firstString(firstHeaderValue(request.headers["x-user-id"]));
+
+  if (!createdBy) {
+    throw new HttpError(400, "createdBy is required for tracked Apigee config operations");
+  }
 
   return {
     onboardingId,
