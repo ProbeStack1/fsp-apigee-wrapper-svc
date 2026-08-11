@@ -5,6 +5,7 @@ import { ensureMongoConnected } from "../db/mongo";
 import { CodegenResultModel } from "../models/codegen-result.model";
 import { getApigeeBaseUrl, encodePathParam } from "./apigee-base-url.service";
 import { getRequestConfig } from "./request-utils.service";
+import { getResourceAudit } from "./config-tracking.service";
 
 const sharedFlowsBasePath = (request: Request) =>
   `${getApigeeBaseUrl(request)}/organizations/${encodePathParam(request.params.org)}/sharedflows`;
@@ -493,6 +494,11 @@ export const sharedFlowsEndpoints = {
 
     const revisions = asStringArray(revisionsResponse.data);
     const revisionDetails = await getRevisionDetails(request, revisions);
+    const audit = await getResourceAudit(request, {
+      configType: "SHARED_FLOW",
+      org: String(request.params.org),
+      name: String(request.params.sharedFlow),
+    });
 
     return {
       organization: request.params.org,
@@ -505,6 +511,7 @@ export const sharedFlowsEndpoints = {
       revisionDetails,
       deployments: "data" in deploymentsResult ? deploymentsResult.data : null,
       deploymentError: "error" in deploymentsResult ? deploymentsResult.error : undefined,
+      audit,
     };
   },
 };

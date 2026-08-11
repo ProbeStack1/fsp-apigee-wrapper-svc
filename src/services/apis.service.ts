@@ -5,6 +5,7 @@ import { ensureMongoConnected } from "../db/mongo";
 import { CodegenResultModel } from "../models/codegen-result.model";
 import { getApigeeBaseUrl, encodePathParam } from "./apigee-base-url.service";
 import { getForwardBody, getRequestConfig } from "./request-utils.service";
+import { getResourceAudit } from "./config-tracking.service";
 
 const apisBasePath = (request: Request) =>
   `${getApigeeBaseUrl(request)}/organizations/${encodePathParam(request.params.org)}/apis`;
@@ -488,6 +489,11 @@ export const apisEndpoints = {
 
     const revisions = asStringArray(revisionsResponse.data);
     const revisionDetails = await getRevisionDetails(request, revisions);
+    const audit = await getResourceAudit(request, {
+      configType: "API",
+      org: String(request.params.org),
+      name: String(request.params.api),
+    });
 
     return {
       organization: request.params.org,
@@ -500,6 +506,7 @@ export const apisEndpoints = {
       revisionDetails,
       deployments: "data" in deploymentsResult ? deploymentsResult.data : null,
       deploymentError: "error" in deploymentsResult ? deploymentsResult.error : undefined,
+      audit,
     };
   },
 

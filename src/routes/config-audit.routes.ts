@@ -10,5 +10,9 @@ export function createConfigAuditRouter(): Router {
     "/organizations/:org/config-audit/:configType/:name",
     controller.handle(configAuditEndpoints.getAudit),
   );
+  router.post(
+    "/organizations/:org/config-audit/:configType/:name/record",
+    controller.handle(configAuditEndpoints.record),
+  );
   return router;
 }

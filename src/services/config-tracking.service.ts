@@ -10,7 +10,7 @@ import { ApigeeConfigRegistryModel } from "../models/apigee-config-registry.mode
 import { getBody, stripTrackingMetadataFromBody } from "./request-utils.service";
 import { readTrackingMetadata } from "./tracking-metadata.service";
 
-export type ConfigType = "TARGET_SERVER" | "KVM" | "KVM_ENTRY" | "API_PRODUCT" | "DEVELOPER_APP";
+export type ConfigType = "TARGET_SERVER" | "KVM" | "KVM_ENTRY" | "API_PRODUCT" | "DEVELOPER_APP" | "API" | "SHARED_FLOW" | "DEVELOPER";
 export type ConfigOperation = "CREATE" | "UPDATE" | "DELETE";
 
 export type ResourceIdentity = {
@@ -206,6 +206,71 @@ export async function executeTrackedMutation<T>(options: TrackedMutationOptions<
 
     throw error;
   }
+}
+
+export async function recordTrackedMutation(options: {
+  request: Request;
+  identity: ResourceIdentity;
+  operation: ConfigOperation;
+  requestPayload?: unknown;
+  beforeSnapshot?: unknown;
+  afterSnapshot?: unknown;
+  responsePayload?: unknown;
+}): Promise<void> {
+  const tracking = readTrackingMetadata(options.request, true);
+  if (!tracking) throw new Error("Tracking metadata is required");
+  await ensureMongoConnected();
+  const now = new Date();
+  const resourceKey = buildResourceKey(options.identity);
+  const existingRegistry = await ApigeeConfigRegistryModel.findOne({
+    onboardingId: tracking.onboardingId,
+    resourceKey,
+  }).lean();
+  const snapshot = options.afterSnapshot ?? options.beforeSnapshot ?? options.responsePayload ?? null;
+  const registry = await ApigeeConfigRegistryModel.findOneAndUpdate(
+    { onboardingId: tracking.onboardingId, resourceKey },
+    {
+      $set: {
+        onboardingId: tracking.onboardingId,
+        microserviceId: tracking.microserviceId,
+        configType: options.identity.configType,
+        source: "PLATFORM",
+        org: options.identity.org,
+        environment: options.identity.environment,
+        developerEmail: options.identity.developerEmail,
+        name: options.identity.name,
+        resourceKey,
+        status: options.operation === "DELETE" ? "DELETED" : "ACTIVE",
+        lastKnownPayload: snapshot,
+        payloadHash: hashPayload(snapshot),
+        updatedBy: tracking.createdBy,
+        updatedAt: now,
+        ...(existingRegistry ? {} : { createdBy: tracking.createdBy, createdAt: now }),
+        ...(options.operation === "DELETE" ? { deletedBy: tracking.createdBy, deletedAt: now } : {}),
+      },
+    },
+    { new: true, upsert: true },
+  );
+  await ApigeeConfigHistoryModel.create({
+    configId: registry._id.toString(),
+    onboardingId: tracking.onboardingId,
+    microserviceId: tracking.microserviceId,
+    configType: options.identity.configType,
+    operation: options.operation,
+    source: "PLATFORM",
+    org: options.identity.org,
+    environment: options.identity.environment,
+    developerEmail: options.identity.developerEmail,
+    name: options.identity.name,
+    resourceKey,
+    requestPayload: options.requestPayload,
+    beforeSnapshot: options.beforeSnapshot,
+    afterSnapshot: options.afterSnapshot,
+    responsePayload: options.responsePayload,
+    status: "SUCCESS",
+    createdBy: tracking.createdBy,
+    performedAt: now,
+  });
 }
 
 export async function syncDirectResources(request: Request, resources: DirectResource[]): Promise<Map<string, ResourceSourceMetadata>> {
