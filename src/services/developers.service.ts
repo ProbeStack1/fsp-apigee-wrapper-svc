@@ -23,7 +23,22 @@ export const developersEndpoints = {
     const response = await apiClient.get(developerPath(request), getRequestConfig(request));
     const name = String(request.params.developer);
     const audit = await getResourceAudit(request, { configType: "DEVELOPER", org: String(request.params.org), name });
-    return { ...(response.data as Record<string, unknown>), audit };
+    const developer = response.data as Record<string, unknown>;
+    return {
+      ...developer,
+      audit: {
+        ...audit,
+        registry: {
+          ...(audit.registry ?? {}),
+          createdBy: audit.registry?.createdBy ?? developer.createdBy,
+          createdAt: audit.registry?.createdAt ?? developer.createdAt,
+          updatedBy: audit.registry?.updatedBy ?? developer.lastModifiedBy ?? developer.updatedBy,
+          updatedAt: audit.registry?.updatedAt ?? developer.lastModifiedAt,
+          source: audit.registry?.source ?? "DIRECT_MANAGEMENT_API",
+          status: audit.registry?.status ?? "ACTIVE",
+        },
+      },
+    };
   },
 
   createDeveloper: async (request: Request) => executeTrackedMutation({

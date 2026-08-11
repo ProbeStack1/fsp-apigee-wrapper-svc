@@ -5,7 +5,7 @@ import { ensureMongoConnected } from "../db/mongo";
 import { CodegenResultModel } from "../models/codegen-result.model";
 import { getApigeeBaseUrl, encodePathParam } from "./apigee-base-url.service";
 import { getRequestConfig } from "./request-utils.service";
-import { getResourceAudit } from "./config-tracking.service";
+import { buildResourceKey, getResourceAudit, resolveListResourceSources } from "./config-tracking.service";
 
 const sharedFlowsBasePath = (request: Request) =>
   `${getApigeeBaseUrl(request)}/organizations/${encodePathParam(request.params.org)}/sharedflows`;
@@ -203,6 +203,22 @@ const lastModifiedAt = (sharedFlowDetail: unknown, revisionDetail?: unknown): st
     ),
   );
 
+const createdBy = (sharedFlowDetail: unknown, revisionDetail?: unknown): string | undefined =>
+  firstString(
+    metadata(sharedFlowDetail)?.createdBy,
+    asRecord(sharedFlowDetail)?.createdBy,
+    metadata(revisionDetail)?.createdBy,
+    asRecord(revisionDetail)?.createdBy,
+  );
+
+const lastModifiedBy = (sharedFlowDetail: unknown, revisionDetail?: unknown): string | undefined =>
+  firstString(
+    metadata(sharedFlowDetail)?.lastModifiedBy,
+    asRecord(sharedFlowDetail)?.lastModifiedBy,
+    metadata(revisionDetail)?.lastModifiedBy,
+    asRecord(revisionDetail)?.lastModifiedBy,
+  );
+
 const collectEnvironments = (value: unknown): string[] => {
   const environments = new Set<string>();
 
@@ -372,6 +388,14 @@ export const sharedFlowsEndpoints = {
     const lifecycleMetadataBySharedFlowName = await lifecycleMetadataForSharedFlows(
       sharedFlowItems.map((sharedFlow) => sharedFlow.name),
     );
+    const registryMetadataByResourceKey = await resolveListResourceSources(
+      request,
+      sharedFlowItems.map(({ name }) => ({ configType: "SHARED_FLOW" as const, org: String(request.params.org), name, payload: null })),
+    ).catch(() => new Map());
+    const registryMetadataForSharedFlow = (name: string) =>
+      registryMetadataByResourceKey.get(
+        buildResourceKey({ configType: "SHARED_FLOW", org: String(request.params.org), name }),
+      );
 
     const sharedFlows = await mapWithConcurrency(
       sharedFlowItems,
@@ -412,6 +436,7 @@ export const sharedFlowsEndpoints = {
           const listRecord = asRecord(item);
           const lifecycle = lifecycleMetadataBySharedFlowName.get(name) ?? directManagementMetadata();
           const environments = collectEnvironments(deployments);
+          const registryMetadata = registryMetadataForSharedFlow(name);
 
           return {
             ...(listRecord ?? {}),
@@ -427,6 +452,8 @@ export const sharedFlowsEndpoints = {
             deploymentCount: deploymentCount(deployments),
             createdAt: createdAt(sharedFlowDetail, latestRevisionDetail),
             lastModifiedAt: lastModifiedAt(sharedFlowDetail, latestRevisionDetail),
+            createdBy: registryMetadata?.createdBy ?? createdBy(sharedFlowDetail, latestRevisionDetail),
+            updatedBy: registryMetadata?.updatedBy ?? lastModifiedBy(sharedFlowDetail, latestRevisionDetail),
             ...(includeRaw ? { sharedFlow: sharedFlowDetail } : {}),
             ...(includeLatestRevisionDetail ? { latestRevisionDetail } : {}),
             ...(includeRaw ? { deployments } : {}),
@@ -440,6 +467,7 @@ export const sharedFlowsEndpoints = {
           };
         } catch (error) {
           const lifecycle = lifecycleMetadataBySharedFlowName.get(name) ?? directManagementMetadata();
+          const registryMetadata = registryMetadataForSharedFlow(name);
 
           return {
             ...(asRecord(item) ?? {}),
@@ -452,6 +480,8 @@ export const sharedFlowsEndpoints = {
             revisions: [],
             revisionCount: 0,
             deploymentCount: 0,
+            createdBy: registryMetadata?.createdBy,
+            updatedBy: registryMetadata?.updatedBy,
             errors: [{
               source: "sharedFlowDetails",
               message: error instanceof Error ? error.message : "Unable to fetch shared flow details",
@@ -494,11 +524,13 @@ export const sharedFlowsEndpoints = {
 
     const revisions = asStringArray(revisionsResponse.data);
     const revisionDetails = await getRevisionDetails(request, revisions);
+    const latestRevisionDetail = revisionDetails.find((entry) => entry.revision === latestRevision(revisions))?.data;
     const audit = await getResourceAudit(request, {
       configType: "SHARED_FLOW",
       org: String(request.params.org),
       name: String(request.params.sharedFlow),
     });
+    const sharedFlow = sharedFlowResponse.data as Record<string, unknown>;
 
     return {
       organization: request.params.org,
@@ -511,7 +543,18 @@ export const sharedFlowsEndpoints = {
       revisionDetails,
       deployments: "data" in deploymentsResult ? deploymentsResult.data : null,
       deploymentError: "error" in deploymentsResult ? deploymentsResult.error : undefined,
-      audit,
+      audit: {
+        ...audit,
+        registry: {
+          ...(audit.registry ?? {}),
+          createdBy: audit.registry?.createdBy ?? createdBy(sharedFlow, latestRevisionDetail),
+          createdAt: audit.registry?.createdAt ?? createdAt(sharedFlow, latestRevisionDetail),
+          updatedBy: audit.registry?.updatedBy ?? lastModifiedBy(sharedFlow, latestRevisionDetail),
+          updatedAt: audit.registry?.updatedAt ?? lastModifiedAt(sharedFlow, latestRevisionDetail),
+          source: audit.registry?.source ?? lifecycle.source,
+          status: audit.registry?.status ?? "ACTIVE",
+        },
+      },
     };
   },
 };

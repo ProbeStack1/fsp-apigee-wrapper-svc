@@ -38,6 +38,10 @@ export type ResourceSourceMetadata = {
   source: "PLATFORM" | "DIRECT_MANAGEMENT_API";
   onboardingId?: string;
   microserviceId?: string;
+  createdBy?: string;
+  createdAt?: Date;
+  updatedBy?: string;
+  updatedAt?: Date;
 };
 
 export type ResourceAudit = {
@@ -430,6 +434,10 @@ export async function resolveListResourceSources(
       source: platformRegistry ? "PLATFORM" : "DIRECT_MANAGEMENT_API",
       onboardingId: selectedRegistry?.onboardingId ?? tracking?.onboardingId,
       microserviceId: selectedRegistry?.microserviceId ?? tracking?.microserviceId,
+      createdBy: selectedRegistry?.createdBy,
+      createdAt: selectedRegistry?.createdAt,
+      updatedBy: selectedRegistry?.updatedBy,
+      updatedAt: selectedRegistry?.updatedAt,
     });
   }
 

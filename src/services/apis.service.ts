@@ -5,7 +5,7 @@ import { ensureMongoConnected } from "../db/mongo";
 import { CodegenResultModel } from "../models/codegen-result.model";
 import { getApigeeBaseUrl, encodePathParam } from "./apigee-base-url.service";
 import { getForwardBody, getRequestConfig } from "./request-utils.service";
-import { getResourceAudit } from "./config-tracking.service";
+import { buildResourceKey, getResourceAudit, resolveListResourceSources } from "./config-tracking.service";
 
 const apisBasePath = (request: Request) =>
   `${getApigeeBaseUrl(request)}/organizations/${encodePathParam(request.params.org)}/apis`;
@@ -203,6 +203,22 @@ const lastModifiedAt = (proxyDetail: unknown, revisionDetail?: unknown): string 
     ),
   );
 
+const createdBy = (proxyDetail: unknown, revisionDetail?: unknown): string | undefined =>
+  firstString(
+    metadata(proxyDetail)?.createdBy,
+    asRecord(proxyDetail)?.createdBy,
+    metadata(revisionDetail)?.createdBy,
+    asRecord(revisionDetail)?.createdBy,
+  );
+
+const lastModifiedBy = (proxyDetail: unknown, revisionDetail?: unknown): string | undefined =>
+  firstString(
+    metadata(proxyDetail)?.lastModifiedBy,
+    asRecord(proxyDetail)?.lastModifiedBy,
+    metadata(revisionDetail)?.lastModifiedBy,
+    asRecord(revisionDetail)?.lastModifiedBy,
+  );
+
 const collectEnvironments = (value: unknown): string[] => {
   const environments = new Set<string>();
 
@@ -380,6 +396,14 @@ export const apisEndpoints = {
     const lifecycleMetadataByProxyName = await lifecycleMetadataForProxies(
       proxyItems.map((proxy) => proxy.name),
     );
+    const registryMetadataByResourceKey = await resolveListResourceSources(
+      request,
+      proxyItems.map(({ name }) => ({ configType: "API" as const, org: String(request.params.org), name, payload: null })),
+    ).catch(() => new Map());
+    const registryMetadataForProxy = (name: string) =>
+      registryMetadataByResourceKey.get(
+        buildResourceKey({ configType: "API", org: String(request.params.org), name }),
+      );
 
     const proxies = await mapWithConcurrency(proxyItems, detailsConcurrency(request), async ({ item, name }) => {
       try {
@@ -407,6 +431,7 @@ export const apisEndpoints = {
           : null;
         const deployments = "data" in deploymentsResult ? deploymentsResult.data : null;
         const listRecord = asRecord(item);
+        const registryMetadata = registryMetadataForProxy(name);
 
         return {
           ...(listRecord ?? {}),
@@ -424,6 +449,8 @@ export const apisEndpoints = {
           deploymentCount: deploymentCount(deployments),
           createdAt: createdAt(proxyDetail, latestRevisionDetail),
           lastModifiedAt: lastModifiedAt(proxyDetail, latestRevisionDetail),
+          createdBy: registryMetadata?.createdBy ?? createdBy(proxyDetail, latestRevisionDetail),
+          updatedBy: registryMetadata?.updatedBy ?? lastModifiedBy(proxyDetail, latestRevisionDetail),
           ...(includeRaw ? { proxy: proxyDetail } : {}),
           ...(includeLatestRevisionDetail ? { latestRevisionDetail } : {}),
           ...(includeRaw ? { deployments } : {}),
@@ -436,6 +463,7 @@ export const apisEndpoints = {
           ].filter(Boolean),
         };
       } catch (error) {
+        const registryMetadata = registryMetadataForProxy(name);
         return {
           ...(asRecord(item) ?? {}),
           name,
@@ -448,6 +476,8 @@ export const apisEndpoints = {
           revisions: [],
           revisionCount: 0,
           deploymentCount: 0,
+          createdBy: registryMetadata?.createdBy,
+          updatedBy: registryMetadata?.updatedBy,
           errors: [{
             source: "proxyDetails",
             message: error instanceof Error ? error.message : "Unable to fetch proxy details",
@@ -489,11 +519,13 @@ export const apisEndpoints = {
 
     const revisions = asStringArray(revisionsResponse.data);
     const revisionDetails = await getRevisionDetails(request, revisions);
+    const latestRevisionDetail = revisionDetails.find((entry) => entry.revision === latestRevision(revisions))?.data;
     const audit = await getResourceAudit(request, {
       configType: "API",
       org: String(request.params.org),
       name: String(request.params.api),
     });
+    const proxy = proxyResponse.data as Record<string, unknown>;
 
     return {
       organization: request.params.org,
@@ -506,7 +538,18 @@ export const apisEndpoints = {
       revisionDetails,
       deployments: "data" in deploymentsResult ? deploymentsResult.data : null,
       deploymentError: "error" in deploymentsResult ? deploymentsResult.error : undefined,
-      audit,
+      audit: {
+        ...audit,
+        registry: {
+          ...(audit.registry ?? {}),
+          createdBy: audit.registry?.createdBy ?? createdBy(proxy, latestRevisionDetail),
+          createdAt: audit.registry?.createdAt ?? createdAt(proxy, latestRevisionDetail),
+          updatedBy: audit.registry?.updatedBy ?? lastModifiedBy(proxy, latestRevisionDetail),
+          updatedAt: audit.registry?.updatedAt ?? lastModifiedAt(proxy, latestRevisionDetail),
+          source: audit.registry?.source ?? lifecycle.source,
+          status: audit.registry?.status ?? "ACTIVE",
+        },
+      },
     };
   },
 

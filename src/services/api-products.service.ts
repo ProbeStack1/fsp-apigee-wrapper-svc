@@ -48,6 +48,8 @@ const annotateItem = (item: unknown, name: string, metadata?: ResourceSourceMeta
       source,
       onboardingId: metadata?.onboardingId,
       microserviceId: metadata?.microserviceId,
+      createdBy: metadata?.createdBy,
+      updatedBy: metadata?.updatedBy,
     };
   }
 
@@ -56,6 +58,8 @@ const annotateItem = (item: unknown, name: string, metadata?: ResourceSourceMeta
     source,
     onboardingId: metadata?.onboardingId,
     microserviceId: metadata?.microserviceId,
+    createdBy: metadata?.createdBy,
+    updatedBy: metadata?.updatedBy,
   };
 };
 
