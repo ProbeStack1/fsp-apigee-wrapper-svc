@@ -11,7 +11,7 @@ import { getBody, stripTrackingMetadataFromBody } from "./request-utils.service"
 import { readTrackingMetadata } from "./tracking-metadata.service";
 
 export type ConfigType = "TARGET_SERVER" | "KVM" | "KVM_ENTRY" | "API_PRODUCT" | "DEVELOPER_APP" | "API" | "SHARED_FLOW" | "DEVELOPER";
-export type ConfigOperation = "CREATE" | "UPDATE" | "DELETE";
+export type ConfigOperation = "CREATE" | "UPDATE" | "DELETE" | "DEPLOY" | "UNDEPLOY";
 
 export type ResourceIdentity = {
   configType: ConfigType;
@@ -42,7 +42,17 @@ export type ResourceSourceMetadata = {
   createdAt?: Date;
   updatedBy?: string;
   updatedAt?: Date;
+  apiType?: string;
 };
+
+function apiTypeFromPayload(payload: unknown): string | undefined {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return undefined;
+  }
+
+  const value = (payload as Record<string, unknown>).apiType;
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
 
 export type ResourceAudit = {
   registry: Record<string, unknown> | null;
@@ -119,14 +129,15 @@ export async function executeTrackedMutation<T>(options: TrackedMutationOptions<
   const now = new Date();
   const resourceKey = buildResourceKey(options);
   const requestPayload = stripTrackingMetadataFromBody(getBody(options.request));
+  const isRemoval = options.operation === "DELETE" || options.operation === "UNDEPLOY";
   const beforeSnapshot =
-    options.operation === "UPDATE" || options.operation === "DELETE"
+    options.operation === "UPDATE" || options.operation === "DEPLOY" || isRemoval
       ? await getBeforeSnapshot(options.resourceUrl, options.requestConfig)
       : null;
 
   try {
     const responsePayload = await options.execute();
-    const afterSnapshot = options.operation === "DELETE" ? null : responsePayload;
+    const afterSnapshot = isRemoval ? null : responsePayload;
     const existingRegistry = await ApigeeConfigRegistryModel.findOne({
       onboardingId: tracking.onboardingId,
       resourceKey,
@@ -142,7 +153,7 @@ export async function executeTrackedMutation<T>(options: TrackedMutationOptions<
       developerEmail: options.developerEmail,
       name: options.name,
       resourceKey,
-      status: options.operation === "DELETE" ? "DELETED" : "ACTIVE",
+      status: isRemoval ? "DELETED" : "ACTIVE",
       lastKnownPayload: afterSnapshot ?? beforeSnapshot ?? responsePayload,
       payloadHash: hashPayload(afterSnapshot ?? beforeSnapshot ?? responsePayload),
       updatedBy: tracking.createdBy,
@@ -154,7 +165,7 @@ export async function executeTrackedMutation<T>(options: TrackedMutationOptions<
       registryUpdate.createdAt = now;
     }
 
-    if (options.operation === "DELETE") {
+    if (isRemoval) {
       registryUpdate.deletedBy = tracking.createdBy;
       registryUpdate.deletedAt = now;
     }
@@ -438,6 +449,7 @@ export async function resolveListResourceSources(
       createdAt: selectedRegistry?.createdAt,
       updatedBy: selectedRegistry?.updatedBy,
       updatedAt: selectedRegistry?.updatedAt,
+      apiType: apiTypeFromPayload(selectedRegistry?.lastKnownPayload),
     });
   }
 

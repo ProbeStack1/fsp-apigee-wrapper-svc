@@ -11,6 +11,16 @@ export function createSharedFlowsRouter(): Router {
   router.get("/organizations/:org/sharedflows/details", controller.handle(sharedFlowsEndpoints.listSharedFlowsDetailed));
   router.get("/organizations/:org/sharedflows/:sharedFlow/details", controller.handle(sharedFlowsEndpoints.getSharedFlowDetails));
   router.get("/organizations/:org/sharedflows/:sharedFlow", controller.handle(sharedFlowsEndpoints.getSharedFlow));
+  router.post("/organizations/:org/sharedflows", controller.handle(sharedFlowsEndpoints.importSharedFlow));
+  router.delete("/organizations/:org/sharedflows/:sharedFlow", controller.handle(sharedFlowsEndpoints.deleteSharedFlow));
+  router.post(
+    "/organizations/:org/environments/:env/sharedflows/:sharedFlow/revisions/:revision/deployments",
+    controller.handle(sharedFlowsEndpoints.deploySharedFlowRevision),
+  );
+  router.delete(
+    "/organizations/:org/environments/:env/sharedflows/:sharedFlow/revisions/:revision/deployments",
+    controller.handle(sharedFlowsEndpoints.undeploySharedFlowRevision),
+  );
 
   return router;
 }

@@ -4,8 +4,8 @@ import { apiClient } from "../client/api-client";
 import { ensureMongoConnected } from "../db/mongo";
 import { CodegenResultModel } from "../models/codegen-result.model";
 import { getApigeeBaseUrl, encodePathParam } from "./apigee-base-url.service";
-import { getRequestConfig } from "./request-utils.service";
-import { buildResourceKey, getResourceAudit, resolveListResourceSources } from "./config-tracking.service";
+import { getBody, getForwardBody, getRequestConfig } from "./request-utils.service";
+import { buildResourceKey, executeTrackedMutation, getResourceAudit, resolveListResourceSources } from "./config-tracking.service";
 
 const sharedFlowsBasePath = (request: Request) =>
   `${getApigeeBaseUrl(request)}/organizations/${encodePathParam(request.params.org)}/sharedflows`;
@@ -33,6 +33,22 @@ const sharedFlowDeploymentsPathByName = (request: Request, sharedFlowName: strin
 
 const sharedFlowDeploymentsPath = (request: Request) =>
   sharedFlowDeploymentsPathByName(request, String(request.params.sharedFlow));
+
+const sharedFlowEnvironmentDeploymentPath = (request: Request) =>
+  `${getApigeeBaseUrl(request)}/organizations/${encodePathParam(request.params.org)}` +
+  `/environments/${encodePathParam(request.params.env)}/sharedflows/${encodePathParam(request.params.sharedFlow)}` +
+  `/revisions/${encodePathParam(request.params.revision)}/deployments`;
+
+const importName = (request: Request): string => {
+  const rawQueryName = request.query.name;
+  const queryName = Array.isArray(rawQueryName) ? rawQueryName[0] : rawQueryName;
+  if (typeof queryName === "string" && queryName.trim()) {
+    return queryName.trim();
+  }
+
+  const body = getBody(request) as Record<string, unknown> | undefined;
+  return typeof body?.name === "string" && body.name.trim() ? body.name.trim() : "unknown";
+};
 
 const asRecord = (value: unknown): Record<string, unknown> | null =>
   value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
@@ -556,5 +572,80 @@ export const sharedFlowsEndpoints = {
         },
       },
     };
+  },
+
+  importSharedFlow: async (request: Request) => {
+    const requestConfig = getRequestConfig(request);
+    const name = importName(request);
+    return executeTrackedMutation({
+      request,
+      configType: "SHARED_FLOW",
+      operation: "CREATE",
+      org: String(request.params.org),
+      name,
+      resourceUrl: sharedFlowPathByName(request, name),
+      requestConfig,
+      execute: async () => {
+        const response = await apiClient.post(sharedFlowsBasePath(request), getForwardBody(request), requestConfig);
+        return response.data;
+      },
+    });
+  },
+
+  deleteSharedFlow: async (request: Request) => {
+    const requestConfig = getRequestConfig(request);
+    return executeTrackedMutation({
+      request,
+      configType: "SHARED_FLOW",
+      operation: "DELETE",
+      org: String(request.params.org),
+      name: String(request.params.sharedFlow),
+      resourceUrl: sharedFlowPath(request),
+      requestConfig,
+      execute: async () => {
+        const response = await apiClient.delete(sharedFlowPath(request), requestConfig);
+        return response.data ?? { success: true };
+      },
+    });
+  },
+
+  deploySharedFlowRevision: async (request: Request) => {
+    const requestConfig = getRequestConfig(request);
+    return executeTrackedMutation({
+      request,
+      configType: "SHARED_FLOW",
+      operation: "DEPLOY",
+      org: String(request.params.org),
+      environment: String(request.params.env),
+      name: String(request.params.sharedFlow),
+      resourceUrl: sharedFlowEnvironmentDeploymentPath(request),
+      requestConfig,
+      execute: async () => {
+        const response = await apiClient.post(
+          sharedFlowEnvironmentDeploymentPath(request),
+          getForwardBody(request, {}),
+          requestConfig,
+        );
+        return response.data;
+      },
+    });
+  },
+
+  undeploySharedFlowRevision: async (request: Request) => {
+    const requestConfig = getRequestConfig(request);
+    return executeTrackedMutation({
+      request,
+      configType: "SHARED_FLOW",
+      operation: "UNDEPLOY",
+      org: String(request.params.org),
+      environment: String(request.params.env),
+      name: String(request.params.sharedFlow),
+      resourceUrl: sharedFlowEnvironmentDeploymentPath(request),
+      requestConfig,
+      execute: async () => {
+        const response = await apiClient.delete(sharedFlowEnvironmentDeploymentPath(request), requestConfig);
+        return response.data ?? { success: true };
+      },
+    });
   },
 };

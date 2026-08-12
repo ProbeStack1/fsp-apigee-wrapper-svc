@@ -440,7 +440,7 @@ export const apisEndpoints = {
           source: lifecycleMetadataByProxyName.get(name)?.source ?? "DIRECT_MANAGEMENT_API",
           createdInLifecycleTool: lifecycleMetadataByProxyName.get(name)?.createdInLifecycleTool ?? false,
           apiProxyType: firstString(listRecord?.apiProxyType, asRecord(proxyDetail)?.apiProxyType),
-          type: inferProxyType(name, item, proxyDetail, latestRevisionDetail),
+          type: registryMetadata?.apiType ?? inferProxyType(name, item, proxyDetail, latestRevisionDetail),
           environments: collectEnvironments(deployments),
           environmentSummary: collectEnvironments(deployments).join(", ") || "Not deployed",
           latestRevision: latest,
@@ -526,6 +526,8 @@ export const apisEndpoints = {
       name: String(request.params.api),
     });
     const proxy = proxyResponse.data as Record<string, unknown>;
+    const registryPayload = asRecord(audit.registry?.lastKnownPayload);
+    const apiType = firstString(registryPayload?.apiType);
 
     return {
       organization: request.params.org,
@@ -534,6 +536,7 @@ export const apisEndpoints = {
       source: lifecycle.source,
       createdInLifecycleTool: lifecycle.createdInLifecycleTool,
       proxy: proxyResponse.data,
+      apiType,
       revisions,
       revisionDetails,
       deployments: "data" in deploymentsResult ? deploymentsResult.data : null,
