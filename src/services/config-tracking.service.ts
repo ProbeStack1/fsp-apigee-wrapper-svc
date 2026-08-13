@@ -38,6 +38,10 @@ export type ResourceSourceMetadata = {
   source: "PLATFORM" | "DIRECT_MANAGEMENT_API";
   onboardingId?: string;
   microserviceId?: string;
+  projectId?: string;
+  projectName?: string;
+  applicationId?: string;
+  applicationName?: string;
   createdBy?: string;
   createdAt?: Date;
   updatedBy?: string;
@@ -146,6 +150,10 @@ export async function executeTrackedMutation<T>(options: TrackedMutationOptions<
     const registryUpdate: Record<string, unknown> = {
       onboardingId: tracking.onboardingId,
       microserviceId: tracking.microserviceId,
+      projectId: tracking.projectId,
+      projectName: tracking.projectName,
+      applicationId: tracking.applicationId,
+      applicationName: tracking.applicationName,
       configType: options.configType,
       source: "PLATFORM",
       org: options.org,
@@ -180,6 +188,10 @@ export async function executeTrackedMutation<T>(options: TrackedMutationOptions<
       configId: registry._id.toString(),
       onboardingId: tracking.onboardingId,
       microserviceId: tracking.microserviceId,
+      projectId: tracking.projectId,
+      projectName: tracking.projectName,
+      applicationId: tracking.applicationId,
+      applicationName: tracking.applicationName,
       configType: options.configType,
       operation: options.operation,
       source: "PLATFORM",
@@ -202,6 +214,10 @@ export async function executeTrackedMutation<T>(options: TrackedMutationOptions<
     await ApigeeConfigHistoryModel.create({
       onboardingId: tracking.onboardingId,
       microserviceId: tracking.microserviceId,
+      projectId: tracking.projectId,
+      projectName: tracking.projectName,
+      applicationId: tracking.applicationId,
+      applicationName: tracking.applicationName,
       configType: options.configType,
       operation: options.operation,
       source: "PLATFORM",
@@ -248,6 +264,10 @@ export async function recordTrackedMutation(options: {
       $set: {
         onboardingId: tracking.onboardingId,
         microserviceId: tracking.microserviceId,
+        projectId: tracking.projectId,
+        projectName: tracking.projectName,
+        applicationId: tracking.applicationId,
+        applicationName: tracking.applicationName,
         configType: options.identity.configType,
         source: "PLATFORM",
         org: options.identity.org,
@@ -270,6 +290,10 @@ export async function recordTrackedMutation(options: {
     configId: registry._id.toString(),
     onboardingId: tracking.onboardingId,
     microserviceId: tracking.microserviceId,
+    projectId: tracking.projectId,
+    projectName: tracking.projectName,
+    applicationId: tracking.applicationId,
+    applicationName: tracking.applicationName,
     configType: options.identity.configType,
     operation: options.operation,
     source: "PLATFORM",
@@ -445,6 +469,10 @@ export async function resolveListResourceSources(
       source: platformRegistry ? "PLATFORM" : "DIRECT_MANAGEMENT_API",
       onboardingId: selectedRegistry?.onboardingId ?? tracking?.onboardingId,
       microserviceId: selectedRegistry?.microserviceId ?? tracking?.microserviceId,
+      projectId: selectedRegistry?.projectId,
+      projectName: selectedRegistry?.projectName,
+      applicationId: selectedRegistry?.applicationId,
+      applicationName: selectedRegistry?.applicationName,
       createdBy: selectedRegistry?.createdBy,
       createdAt: selectedRegistry?.createdAt,
       updatedBy: selectedRegistry?.updatedBy,

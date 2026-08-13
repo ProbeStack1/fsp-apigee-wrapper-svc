@@ -8,7 +8,8 @@
     "dev": "nodemon --watch src --ext ts --exec tsx src/server.ts",
     "build": "tsup",
     "start": "node dist/server.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "backfill:proxy-creators": "tsx scripts/backfill-proxy-creators.ts"
   },
   "engines": {
     "node": ">=20.0.0"

@@ -5,7 +5,7 @@ import { ensureMongoConnected } from "../db/mongo";
 import { CodegenResultModel } from "../models/codegen-result.model";
 import { getApigeeBaseUrl, encodePathParam } from "./apigee-base-url.service";
 import { getForwardBody, getRequestConfig } from "./request-utils.service";
-import { buildResourceKey, getResourceAudit, resolveListResourceSources } from "./config-tracking.service";
+import { buildResourceKey, getResourceAudit, resolveListResourceSources, syncDirectResources } from "./config-tracking.service";
 
 const apisBasePath = (request: Request) =>
   `${getApigeeBaseUrl(request)}/organizations/${encodePathParam(request.params.org)}/apis`;
@@ -520,6 +520,20 @@ export const apisEndpoints = {
     const revisions = asStringArray(revisionsResponse.data);
     const revisionDetails = await getRevisionDetails(request, revisions);
     const latestRevisionDetail = revisionDetails.find((entry) => entry.revision === latestRevision(revisions))?.data;
+
+    // Proxies created directly against Apigee (outside this platform) have no
+    // registry doc at all, so Created By / Modified By show blank. Opportunistically
+    // discover + record them the first time someone opens the detail view — same
+    // pattern already used for Target Servers, API Products, KVMs, and Developer
+    // Apps. No-ops if tracking headers are absent, or if a doc already exists and
+    // hasn't changed (never overwrites an existing createdBy).
+    await syncDirectResources(request, [{
+      configType: "API",
+      org: String(request.params.org),
+      name: String(request.params.api),
+      payload: proxyResponse.data,
+    }]);
+
     const audit = await getResourceAudit(request, {
       configType: "API",
       org: String(request.params.org),

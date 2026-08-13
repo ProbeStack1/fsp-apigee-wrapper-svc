@@ -4,6 +4,10 @@ const apigeeConfigRegistrySchema = new Schema(
   {
     onboardingId: { type: String, required: true, index: true },
     microserviceId: { type: String, index: true },
+    projectId: { type: String, index: true },
+    projectName: { type: String },
+    applicationId: { type: String, index: true },
+    applicationName: { type: String },
     configType: { type: String, required: true, index: true },
     source: { type: String, required: true, enum: ["PLATFORM", "DIRECT_MANAGEMENT_API"], index: true },
     org: { type: String, required: true, index: true },
