@@ -12,6 +12,8 @@ const ALLOWED_HEADERS = [
   "X-User-Email",
   "X-User-Id",
   "X-User-Name",
+  "X-Created-By",
+  "X-Onboarding-Id",
   "X-User-Role",
   "X-Service-Transaction-Id",
   "X-Trace-Id",
