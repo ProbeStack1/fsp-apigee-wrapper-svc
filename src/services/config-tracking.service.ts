@@ -10,7 +10,7 @@ import { ApigeeConfigRegistryModel } from "../models/apigee-config-registry.mode
 import { getBody, stripTrackingMetadataFromBody } from "./request-utils.service";
 import { readTrackingMetadata } from "./tracking-metadata.service";
 
-export type ConfigType = "TARGET_SERVER" | "KVM" | "KVM_ENTRY" | "API_PRODUCT" | "DEVELOPER_APP" | "API" | "SHARED_FLOW" | "DEVELOPER" | "DEVELOPER_APP_KEY";
+export type ConfigType = "TARGET_SERVER" | "KVM" | "KVM_ENTRY" | "API_PRODUCT" | "DEVELOPER_APP" | "API" | "SHARED_FLOW" | "DEVELOPER";
 export type ConfigOperation = "CREATE" | "UPDATE" | "DELETE" | "DEPLOY" | "UNDEPLOY";
 
 export type ResourceIdentity = {
@@ -18,7 +18,6 @@ export type ResourceIdentity = {
   org: string;
   environment?: string;
   developerEmail?: string;
-  keyName?: string;
   name: string;
 };
 

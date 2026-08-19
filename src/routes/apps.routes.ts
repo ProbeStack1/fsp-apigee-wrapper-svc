@@ -13,8 +13,6 @@ export function createAppsRouter(): Router {
   router.post("/organizations/:org/developers/:developer/apps", controller.handle(appsEndpoints.createApp));
   router.put("/organizations/:org/developers/:developer/apps/:app", controller.handle(appsEndpoints.updateApp));
   router.delete("/organizations/:org/developers/:developer/apps/:app", controller.handle(appsEndpoints.deleteApp));
-  
-  // Key rotation for apps
-  router.post("/organizations/:org/developers/:developer/apps/:app/keys/:key/?action=approve", controller.handle(appsEndpoints.createKey));
+
   return router;
 }
