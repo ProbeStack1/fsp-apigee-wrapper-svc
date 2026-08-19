@@ -171,6 +171,25 @@ export const appsEndpoints = {
     });
   },
 
+  createKey: async (request: Request) => {
+    const requestConfig = getRequestConfig(request);
+    return executeTrackedMutation({
+      request,
+      configType: "DEVELOPER_APP_KEY",
+      operation: "CREATE",
+      org: String(request.params.org),
+      developerEmail: String(request.params.developer),
+      keyName: String(request.params.key),
+      name: bodyName(request),
+      resourceUrl: `${appsPath(request)}/${encodePathParam(bodyName(request))}`,
+      requestConfig,
+      execute: async () => {
+        const response = await apiClient.post(appsPath(request), getForwardBody(request), requestConfig);
+        return response.data;
+      },
+    });
+  },
+
   updateApp: async (request: Request) => {
     const requestConfig = getRequestConfig(request);
     return executeTrackedMutation({
